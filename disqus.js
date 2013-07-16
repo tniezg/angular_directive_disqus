@@ -1,44 +1,71 @@
-define(['disqusEmbed'], function (DISQUS) {
+define(['./disqusEmbed'], function (disqusEmbed) {
 	var disqus = [function () {
 			return {
-				restrict: 'A',
 				scope:{
 					'disqusIdentifier':'@',
-					'disqusUrl':'@'
+					'disqusUrl':'@',
+					'disqusEnabled':'@'
 				},
 				replace:true,
 				link:function(scope, element, attributes){
-					element.html('<div id="disqus_thread">DISQUS</div>');
-					var inject, identifier, url;
+					var inject, 
+						identifier, 
+						enabled,
+						url,
+						promise, 
+						createEmbed = function(){
+							return Object.create(disqusEmbed());
+						},
+						embed=createEmbed(),
+						disable=function(){
+							if(promise)
+								promise.abort();
+							embed.detach();
+						},
+						enable=function(){
+							promise = embed.load().done(function(){
+								var config = function () {
+									this.page.identifier = identifier;
+									this.page.url = url;
+								};
+
+								embed.attach(element, config);
+							});
+						};
 
 					inject=function(){
-						if(attributes.disqusIdentifier!==undefined && 
-								attributes.disqusUrl!==undefined){
-							identifier=attributes.disqusIdentifier;
-							url=attributes.disqusUrl;
-
-							DISQUS.reset({
-								reload:true,
-								config: function () {
-									console.log(identifier);
-									console.log(url);
-							    this.page.identifier = identifier;
-							    this.page.url = url;
-							  }
-							});
+						if(enabled && url!==undefined && 
+								identifier!==undefined){
+							enable();
+						}else{
+							disable();
 						}
 					};
 
-					attributes.$observe('disqusUrl',function(url){
+					attributes.$observe('disqusUrl',function(newValue){
+						url=newValue;
+
 						inject();
 					});
-					attributes.$observe('disqusIdentifier',function(identifier){
+					attributes.$observe('disqusIdentifier',function(newValue){
+						identifier=newValue;
+
 						inject();
 					});
 
 					scope.$on('$destroy',function(){
-						DISQUS.reset({reload:false});
+						disable();
+
 						element.remove();
+					});
+
+					attributes.$observe('disqusEnabled',function(newValue){
+						if(newValue="true"){
+							enabled=true;
+						}else{
+							enabled=false;
+						}
+						inject();
 					});
 				}
 			}
